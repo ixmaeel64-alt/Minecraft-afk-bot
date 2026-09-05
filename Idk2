@@ -1,0 +1,62 @@
+const bedrock = require('bedrock-protocol');
+
+const botOptions = {
+    host: 'YOUR_BEDROCK_SERVER_IP', // Replace with your server's IP address
+    port: 19132,                    // Replace with your Bedrock port (e.g. Aternos custom port)
+    username: 'AFK_Bot',            
+    offline: true                   // Set to true if server allows cracked/offline accounts
+};
+
+function createBot() {
+    console.log('Connecting bot...');
+    const client = bedrock.createClient(botOptions);
+
+    client.on('spawn', () => {
+        console.log('Bot successfully joined!');
+        // Anti-AFK: Sends a jump action packet to the server every 30 seconds
+        setInterval(() => {
+            if (client.entityId) {
+                client.queue('player_action', {
+                    action: 'jump',
+                    entity_runtime_id: client.entityId,
+                    position: { x: 0, y: 0, z: 0 },
+                    result_position: { x: 0, y: 0, z: 0 },
+                    face: 0
+                });
+            }
+        }, 30000);
+    });
+
+    client.on('text', (packet) => {
+        if (packet.source_name === botOptions.username) return;
+        const message = packet.message || '';
+        
+        // Instant friend accept automation command parsing
+        if (message.includes('wants to be your friend') || message.includes('friend request')) {
+            client.queue('text', {
+                type: 'chat',
+                needs_translation: false,
+                source_name: '',
+                xuid: '',
+                platform_chat_id: '',
+                message: `/friend accept ${packet.source_name}`
+            });
+        }
+    });
+
+    client.on('close', () => {
+        console.log('Disconnected. Reconnecting in 15 seconds...');
+        setTimeout(createBot, 15000);
+    });
+
+    client.on('error', (err) => console.log('Network Error:', err));
+}
+
+// Mobile-friendly keep-awake ping target
+const http = require('http');
+http.createServer((req, res) => {
+    res.write("Bot Running");
+    res.end();
+}).listen(process.env.PORT || 3000);
+
+createBot();
